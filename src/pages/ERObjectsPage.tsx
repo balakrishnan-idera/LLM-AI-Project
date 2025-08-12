@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import SearchBar from "@/components/SearchBar";
+import UploadCsv from "@/components/ui/upload-csv"
 import { Network, Eye, Edit, Trash2 } from "lucide-react";
 
 // Mock data - in real app this would come from API
@@ -36,6 +37,7 @@ const mockERObjects = [
 
 const ERObjectsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
+
   const navigate = useNavigate();
 
   const filteredObjects = mockERObjects.filter(obj =>
@@ -61,6 +63,8 @@ const ERObjectsPage = () => {
             Each ERObject defines business concepts with their attributes and relationships.
           </p>
         </div>
+
+        <UploadCsv></UploadCsv>
 
         {/* Search */}
         <SearchBar

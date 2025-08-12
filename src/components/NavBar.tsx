@@ -24,7 +24,7 @@ const NavBar = () => {
           </Link>
 
           <div className="flex items-center space-x-6">
-            <Link to="/erobjects">
+            {/* <Link to="/erobjects">
               <Button 
                 variant={isActive("/erobjects") ? "default" : "ghost"}
                 className="flex items-center space-x-2"
@@ -32,7 +32,7 @@ const NavBar = () => {
                 <Network className="h-4 w-4" />
                 <span>ERObjects</span>
               </Button>
-            </Link>
+            </Link> */}
             
             <Link to="/terms">
               <Button 

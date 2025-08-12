@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,9 +32,27 @@ const mockAiRecommendations = [
 interface RelationshipTabsProps {
   entityType: "ERObject" | "Term";
   entityId: string;
+  name: string
 }
 
-const RelationshipTabs = ({ entityType, entityId }: RelationshipTabsProps) => {
+const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps) => {
+
+   useEffect(() => {
+    console.log(name);
+    if (name != null && name.length > 0) {
+      const res = fetch("http://localhost:8000/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ "text": name,
+        top_k: 4 })
+      }).then(res => res.json())
+        .then(data => console.log(data))
+        .catch(err => console.error(err));
+      
+      console.log(res);
+    }
+  }, []);
+
   const [relatedSearchTerm, setRelatedSearchTerm] = useState("");
   const [unrelatedSearchTerm, setUnrelatedSearchTerm] = useState("");
   const [showRecommendations, setShowRecommendations] = useState(false);

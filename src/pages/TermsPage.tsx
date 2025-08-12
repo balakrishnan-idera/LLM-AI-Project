@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import SearchBar from "@/components/SearchBar";
+import UploadCsv from "@/components/ui/upload-csv";
 import { Database, Eye, Edit, Trash2 } from "lucide-react";
 
 // Mock data - in real app this would come from API
@@ -51,8 +52,19 @@ const mockTerms = [
 
 const TermsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [termsData, setTermsData] = useState([]);
   const navigate = useNavigate();
 
+  // useEffect(() => {
+  // fetch("http://localhost:8000/api/fetch-term", {
+  //     method: "GET",
+  //     headers: { "Content-Type": "application/json" }
+  //     }).then(res => res.json())
+  //     .then(data => {
+  //     setTermsData(data.results);
+  //   })
+  //   .catch(err => console.error(err));
+  // }, []);
   const filteredTerms = mockTerms.filter(term =>
     term.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     term.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -77,6 +89,7 @@ const TermsPage = () => {
           </p>
         </div>
 
+        <UploadCsv></UploadCsv>
         {/* Search */}
         <SearchBar
           value={searchTerm}

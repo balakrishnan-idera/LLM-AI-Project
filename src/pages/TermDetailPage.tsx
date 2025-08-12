@@ -139,6 +139,7 @@ const TermDetailPage = () => {
             <RelationshipTabs
               entityType="Term"
               entityId={term.id}
+              name={term.name}
             />
           )}
         </div>
