@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import SearchBar from "@/components/SearchBar";
+import SearchValue from "@/components/ui/search-value"
 import { Link, Unlink, Brain, Star } from "lucide-react";
 
 // Mock data for terms
@@ -245,6 +246,7 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
                     </p>
                   </div>
                 )}
+                <SearchValue></SearchValue>
               </div>
             </CardContent>
           </Card>
