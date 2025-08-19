@@ -38,7 +38,7 @@ useEffect(() => {
     const fetchTerms = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("http://localhost:8000/api/fetch-term");
+        const response = await axios.post("http://localhost:8000/api/vectors");
         setTermsData(response.data.results);
       } catch (err) {
         console.error("Fetch error:", err);
@@ -59,7 +59,7 @@ useEffect(() => {
     }
 
     try {
-      await axios.delete(`http://localhost:8000/api/delete-term/${id}`);
+      await axios.delete(`http://localhost:8000/api/vectors/delete//${id}`);
       // Update state to remove the deleted term
       setTermsData(termsData.filter((term) => term.id !== id));
       // Optional: Show success message
@@ -71,10 +71,10 @@ useEffect(() => {
   };
 
 // Filter terms based on name or definition
-  const filteredTerms = termsData.filter((term) =>
-    term.name.toLowerCase().includes(searchTerm.toLowerCase()) 
-
-  );
+  const filteredTerms = termsData?.filter((term) => {
+  if (!searchTerm) return true; // show all if empty
+  return term?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+});
 
  const handleTermClick = (id: string) => {
     navigate(`/terms/${id}`);
@@ -119,10 +119,10 @@ useEffect(() => {
         {/* Terms Grid */}
         {!loading && (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTerms.map((term) => (
+            {filteredTerms?.map((term) => (
               <Card
                 key={term.id}
-                className="group cursor-pointer border-border bg-card/50 backdrop-blur hover:shadow-lg transition-all duration-300 hover:border-primary/50"
+                className="group border-border bg-card/50 backdrop-blur hover:shadow-lg transition-all duration-300 hover:border-primary/50"
                 
               >
                 <CardHeader>
@@ -141,7 +141,7 @@ useEffect(() => {
                 <CardContent>
                   <p className="text-sm text-muted-foreground leading-relaxed mb-4 min-h-[3.5rem]">
                     {term.definition
-                      ? term.definition.length > 100
+                      ? term.definition?.length > 100
                         ? `${term.definition.slice(0, 100)}...`
                         : term.definition
                       : ""}
@@ -187,7 +187,7 @@ useEffect(() => {
           </div>
         )}
 
-        {!loading && filteredTerms.length === 0 && (
+        {!loading && filteredTerms?.length === 0 && (
           <div className="text-center py-12">
             <Database className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No Terms found</h3>

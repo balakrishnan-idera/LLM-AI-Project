@@ -44,9 +44,8 @@ const TermDetailPage = () => {
       }
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:8000/api/fetch-term/${id}`);
-        console.log(response.data.results)
-        setTerm(response.data.results[0]); // Assuming the API returns the term object directly
+        const response = await axios.get(`http://localhost:8000/api/vectors/${id}`);
+        setTerm(response.data); // Assuming the API returns the term object directly
       } catch (err) {
         console.error("Fetch term error:", err);
         setError(err instanceof Error ? err.message : "An error occurred while fetching the term.");
@@ -70,7 +69,7 @@ const TermDetailPage = () => {
       return;
     }
     try {
-      await axios.delete(`http://localhost:8000/api/delete-term/${id}`);
+      await axios.delete(`http://localhost:8000/api/vectors/delete/${id}`);
       alert("Term deleted successfully!");
       navigate("/terms"); // Navigate back to terms list after deletion
     } catch (err) {

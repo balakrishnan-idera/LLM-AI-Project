@@ -61,6 +61,6 @@ def upsert_from_csv_file(csv_path: str):
         })
 
     for i in range(0, len(vectors), 100):
-        index.upsert(vectors=vectors[i:i+100], namespace="default")
+        index.upsert(vectors=vectors[i:i+100])
 
     return f"Upserted {len(vectors)} records from {csv_path}"
