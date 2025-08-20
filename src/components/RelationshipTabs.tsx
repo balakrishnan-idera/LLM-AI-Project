@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import SearchBar from "@/components/SearchBar";
 import SearchValue from "@/components/ui/search-value"
 import { Link, Unlink, Brain, Star } from "lucide-react";
+import axios from "axios";
 
+const API_BASE = "http://localhost:8000";
 // Mock data for terms
 const mockAllTerms = [
   { id: "term1", name: "Customer ID", description: "Unique identifier for customer records" },
@@ -24,11 +26,11 @@ const mockAllTerms = [
 const mockRelatedTerms = ["term1", "term2", "term3"];
 
 // Mock AI recommendations
-const mockAiRecommendations = [
-  { id: "term4", confidence: 0.92, reason: "Payment information commonly associated with customer entities" },
-  { id: "term6", confidence: 0.87, reason: "Tax calculations required for customer transactions" },
-  { id: "term8", confidence: 0.73, reason: "Credit scoring often linked to customer profiles" }
-];
+// const mockAiRecommendations = [
+//   { id: "term4", score: 0.92, reason: "Payment information commonly associated with customer entities" },
+//   { id: "term6", score: 0.87, reason: "Tax calculations required for customer transactions" },
+//   { id: "term8", score: 0.73, reason: "Credit scoring often linked to customer profiles" }
+// ];
 
 interface RelationshipTabsProps {
   entityType: "ERObject" | "Term";
@@ -36,53 +38,77 @@ interface RelationshipTabsProps {
   name: string
 }
 
-const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps) => {
+interface SearchRequest {
+  query: string
+}
 
-   useEffect(() => {
-    console.log(name);
-    if (name != null && name.length > 0) {
-      const res = fetch("http://localhost:8000/api/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ "text": name,
-        top_k: 4 })
-      }).then(res => res.json())
-        .then(data => console.log(data))
-        .catch(err => console.error(err));
-      
-      console.log(res);
-    }
-  }, []);
+const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps) => {
 
   const [relatedSearchTerm, setRelatedSearchTerm] = useState("");
   const [unrelatedSearchTerm, setUnrelatedSearchTerm] = useState("");
-  const [showRecommendations, setShowRecommendations] = useState(false);
+  // const [showRecommendations, setShowRecommendations] = useState(false);
   const [activeTab, setActiveTab] = useState("related");
+  const [aiRecommended, setAIRecommended] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+
+    const request: SearchRequest = { query: name }
+
+    setLoading(true); // 🔹 start loading
+    console.log(loading);
+    const res = axios.post(`${API_BASE}/api/search`, request, {
+      headers: { "Content-Type": "application/json" },
+    }).then(res => setAIRecommended(res.data.results))
+      .catch(err => console.error(err))
+      .finally(() => {
+        setLoading(false);
+      });
+    // console.log(name);
+    // if (name != null && name.length > 0) {
+    //   const res = fetch("http://localhost:8000/api/search", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({ "text": name,
+    //     top_k: 4 })
+    //   }).then(res => res.json())
+    //     .then(data => console.log(data))
+    //     .catch(err => console.error(err));
+
+    //   console.log(res);
+    // }
+  }, []);
 
   const relatedTerms = mockAllTerms.filter(term => mockRelatedTerms.includes(term.id));
-  const unrelatedTerms = mockAllTerms.filter(term => !mockRelatedTerms.includes(term.id));
+  // const unrelatedTerms = aiRecommended;
 
-  const filteredRelatedTerms = relatedTerms.filter(term =>
-    term.name.toLowerCase().includes(relatedSearchTerm.toLowerCase()) ||
-    term.description.toLowerCase().includes(relatedSearchTerm.toLowerCase())
+  const filteredRelatedTerms = relatedTerms?.filter((term) => {
+    if (!relatedSearchTerm) return true; // show all if empty
+    return term?.name?.toLowerCase().includes(relatedSearchTerm.toLowerCase()) ||
+      term?.description?.toLowerCase().includes(relatedSearchTerm.toLowerCase());
+  });
+
+  // const filteredUnrelatedTerms = aiRecommended.filter(term =>
+  //   term.name.toLowerCase().includes(unrelatedSearchTerm.toLowerCase()) ||
+  //   term.description.toLowerCase().includes(unrelatedSearchTerm.toLowerCase())
+  // );
+
+  // const aiRecommendedTerms = showRecommendations 
+  //   ? filteredUnrelatedTerms.filter(term => 
+  //       mockAiRecommendations.some(rec => rec.id === term.id)
+  //     ).sort((a, b) => {
+  //       const aRec = mockAiRecommendations.find(rec => rec.id === a.id);
+  //       const bRec = mockAiRecommendations.find(rec => rec.id === b.id);
+  //       return (bRec?.confidence || 0) - (aRec?.confidence || 0);
+  //     })
+  //   : [];
+
+  const displayUnrelatedTerms = aiRecommended.filter(term => {
+    if (!unrelatedSearchTerm) return true;
+    return term?.name?.toLowerCase().includes(unrelatedSearchTerm.toLowerCase()) ||
+      term?.description?.toLowerCase().includes(unrelatedSearchTerm.toLowerCase())
+  }
   );
-
-  const filteredUnrelatedTerms = unrelatedTerms.filter(term =>
-    term.name.toLowerCase().includes(unrelatedSearchTerm.toLowerCase()) ||
-    term.description.toLowerCase().includes(unrelatedSearchTerm.toLowerCase())
-  );
-
-  const aiRecommendedTerms = showRecommendations 
-    ? filteredUnrelatedTerms.filter(term => 
-        mockAiRecommendations.some(rec => rec.id === term.id)
-      ).sort((a, b) => {
-        const aRec = mockAiRecommendations.find(rec => rec.id === a.id);
-        const bRec = mockAiRecommendations.find(rec => rec.id === b.id);
-        return (bRec?.confidence || 0) - (aRec?.confidence || 0);
-      })
-    : [];
-
-  const displayUnrelatedTerms = showRecommendations ? aiRecommendedTerms : filteredUnrelatedTerms;
 
   const handleUnrelate = (termId: string) => {
     console.log(`Unrelating term ${termId} from ${entityType} ${entityId}`);
@@ -94,9 +120,9 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
     // In real app, this would make an API call
   };
 
-  const getRecommendationData = (termId: string) => {
-    return mockAiRecommendations.find(rec => rec.id === termId);
-  };
+  // const getRecommendationData = (termId: string) => {
+  //   return mockAiRecommendations.find(rec => rec.id === termId);
+  // };
 
   return (
     <div className="w-full">
@@ -107,8 +133,8 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
             <span>Related Terms</span>
           </TabsTrigger>
           <TabsTrigger value="unrelated" className="flex items-center space-x-2">
-            <Unlink className="h-4 w-4" />
-            <span>To Be Related Terms</span>
+            <Brain className="h-4 w-4 text-accent" />
+            <span>AI Recommendation</span>
           </TabsTrigger>
         </TabsList>
 
@@ -127,7 +153,7 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
                 onChange={setRelatedSearchTerm}
                 placeholder="Search related terms..."
               />
-              
+
               <div className="space-y-3">
                 {filteredRelatedTerms.map((term) => (
                   <div key={term.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/30">
@@ -146,7 +172,7 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
                     </Button>
                   </div>
                 ))}
-                
+
                 {filteredRelatedTerms.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Link className="h-8 w-8 mx-auto mb-2" />
@@ -165,9 +191,9 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
                 <CardTitle className="flex items-center space-x-2">
                   <Unlink className="h-5 w-5" />
                   <span>Available Terms to Relate</span>
-                  <Badge variant="secondary">{unrelatedTerms.length}</Badge>
+                  <Badge variant="secondary">{aiRecommended.length}</Badge>
                 </CardTitle>
-                <div className="flex items-center space-x-2">
+                {/* <div className="flex items-center space-x-2">
                   <Checkbox
                     id="show-recommendations"
                     checked={showRecommendations}
@@ -177,7 +203,7 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
                     <Brain className="h-4 w-4 text-accent" />
                     <span>Show AI Recommendations</span>
                   </label>
-                </div>
+                </div> */}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -186,8 +212,8 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
                 onChange={setUnrelatedSearchTerm}
                 placeholder="Search available terms..."
               />
-              
-              {showRecommendations && aiRecommendedTerms.length > 0 && (
+
+              {/* {showRecommendations && aiRecommendedTerms.length > 0 && (
                 <div className="bg-accent/10 border border-accent/20 rounded-lg p-3">
                   <div className="flex items-center space-x-2 mb-2">
                     <Brain className="h-4 w-4 text-accent" />
@@ -197,57 +223,81 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
                     Terms are sorted by confidence score based on ML analysis
                   </p>
                 </div>
-              )}
-              
-              <div className="space-y-3">
-                {displayUnrelatedTerms.map((term) => {
-                  const recommendation = getRecommendationData(term.id);
-                  return (
-                    <div key={term.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-card">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h4 className="font-medium">{term.name}</h4>
-                          {recommendation && (
+              )} */}
+              {loading ? (
+                <div className="flex items-center justify-center p-4">
+                  {/* Tailwind spinner example */}
+                  <svg
+                    className="animate-spin h-6 w-6 text-blue-500"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    ></path>
+                  </svg>
+                  <span className="ml-2">Loading...</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {displayUnrelatedTerms.map((term) => {
+                    // const recommendation = getRecommendationData(term.id);
+                    return (
+                      <div key={term.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-card">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h4 className="font-medium">{term.name}</h4>
+                            {term.aliases && term.aliases.toLowerCase() !== "nan" && (
+                            <p className="text-sm text-muted-foreground">Aliases: ({term.aliases})</p>
+                            )}
                             <div className="flex items-center space-x-1">
                               <Star className="h-4 w-4 text-warning fill-current" />
                               <Badge variant="outline" className="text-xs">
-                                {Math.round(recommendation.confidence * 100)}% confidence
+                                {Math.round(term.score * 100)}% confidence
                               </Badge>
                             </div>
+                          </div>
+                          {term.definition && term.definition.toLowerCase() !== "nan" && (
+                          <p className="text-sm text-muted-foreground">{term.definition}</p>
                           )}
+                          {term.definition && term.definition.toLowerCase() == "nan" && (
+                          <p className="text-sm text-muted-foreground">Definition not available</p>
+                          )}
+                          <p className="text-xs text-accent mt-1">{term.reason}</p>
+
                         </div>
-                        <p className="text-sm text-muted-foreground">{term.description}</p>
-                        {recommendation && (
-                          <p className="text-xs text-accent mt-1">{recommendation.reason}</p>
-                        )}
+                        <Button
+                          size="sm"
+                          onClick={() => handleRelate(term.id)}
+                          className="bg-primary hover:bg-primary/90"
+                        >
+                          <Link className="h-4 w-4 mr-1" />
+                          Relate
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => handleRelate(term.id)}
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        <Link className="h-4 w-4 mr-1" />
-                        Relate
-                      </Button>
+                    );
+                  })}
+
+                  {displayUnrelatedTerms.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Unlink className="h-8 w-8 mx-auto mb-2" />
+                      <p>"No AI recommendations available"
+                      </p>
                     </div>
-                  );
-                })}
-                
-                {displayUnrelatedTerms.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Unlink className="h-8 w-8 mx-auto mb-2" />
-                    <p>
-                      {showRecommendations 
-                        ? "No AI recommendations available" 
-                        : unrelatedSearchTerm 
-                          ? "No matching terms found"
-                          : "No terms available to relate"
-                      }
-                    </p>
-                  </div>
-                )}
-                <SearchValue></SearchValue>
-              </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

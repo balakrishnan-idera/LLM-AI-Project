@@ -69,7 +69,7 @@ class SearchRequest(BaseModel):
 
 class SearchResult(BaseModel):
     name: str
-    description: str
+    definition: str
     score: float
     reason: str
 
@@ -83,19 +83,42 @@ class VectorsRequest(BaseModel):
     limit: int = 100
     cursor: str = None  # for pagination
 
-def generate_reason(query, doc):
-    """Generate explanation for match."""
-    prompt = f"""
-    The user searched for: "{query}".
-    The best match found is: "{doc.metadata.get('Name')}" with description: "{doc.metadata.get('Definition')}".
-    Explain briefly why this is a relevant match.
+def generate_reason(user_query: str, metadata: dict) -> str:
+    reasoning_prompt = f"""
+    The user searched for: "{user_query}".
+    Candidate match:
+    - Name: {metadata.get("Name", "")}
+    - Definition: {metadata.get("Definition", "")}
+    - Aliases: {metadata.get("Aliases", "")}
+
+    Explain briefly in one or two sentences why this result is relevant to the query.
     """
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=50
-    )
-    return response.choices[0].message.content.strip()
+    try:
+        reasoning_response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": reasoning_prompt}],
+            max_tokens=60,
+            temperature=0.7,
+        )
+        content = reasoning_response.choices[0].message.content
+        return content.strip() if content else "Reason unavailable"
+    except Exception as e:
+        print(f"OpenAI reasoning error: {e}")
+        return "Reason unavailable"
+
+# def generate_reason(query, doc):
+#     """Generate explanation for match."""
+#     prompt = f"""
+#     The user searched for: "{query}".
+#     The best match found is: "{doc.metadata.get('Name')}" with description: "{doc.metadata.get('Definition')}".
+#     Explain briefly why this is a relevant match.
+#     """
+#     response = openai_client.chat.completions.create(
+#         model="gpt-4o-mini",
+#         messages=[{"role": "user", "content": prompt}],
+#         max_tokens=50
+#     )
+#     return response.choices[0].message.content.strip()
 
 # @app.post("/api/search-old", response_model=list[SearchResult])
 # async def search_term(request: SearchRequest):
@@ -266,17 +289,31 @@ async def upload_csv(file: UploadFile):
 async def search(request: SearchRequest):
     try:
         query_vector = embedding_model.encode(request.query).tolist()
-        results = index.query(vector=query_vector, top_k=5, include_metadata=True)
-
+        results = index.query(vector=query_vector, top_k=6, include_metadata=True)
+        
         response = []
         for match in results.matches:
             metadata = match.metadata or {}
+            
+            name = metadata.get("Name", "")
+            aliases = metadata.get("Aliases", "")
+            definition = metadata.get("Definition", "")
+
+            # 🚫 skip if exact duplicate of query
+            if request.query.strip().lower() in [
+                name.strip().lower(),
+                aliases.strip().lower(),
+                definition.strip().lower()
+            ]:
+                continue
+
             response.append({
                 "id": match.id,
                 "score": match.score,
-                "Name": metadata.get("Name", ""),
-                "Definition": metadata.get("Definition", ""),
-                "Aliases": metadata.get("Aliases", "")
+                "name": metadata.get("Name", ""),
+                "definition": metadata.get("Definition", ""),
+                "aliases": metadata.get("Aliases", ""),
+                "reason": generate_reason(request.query, metadata)
             })
         return {"results": response}
 
