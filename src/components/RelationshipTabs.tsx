@@ -8,6 +8,7 @@ import SearchBar from "@/components/SearchBar";
 import SearchValue from "@/components/ui/search-value"
 import { Link, Unlink, Brain, Star } from "lucide-react";
 import axios from "axios";
+import { supabase } from "../lib/supabaseClient";
 
 const API_BASE = "http://localhost:8000";
 // Mock data for terms
@@ -32,18 +33,26 @@ const mockRelatedTerms = ["term1", "term2", "term3"];
 //   { id: "term8", score: 0.73, reason: "Credit scoring often linked to customer profiles" }
 // ];
 
+type Term = {
+  id: string;
+  name: string;
+  definition: string;
+};
+
 interface RelationshipTabsProps {
   entityType: "ERObject" | "Term";
   entityId: string;
-  name: string
+  name: string;
+  definition: string
 }
 
 interface SearchRequest {
   query: string
 }
 
-const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps) => {
+const RelationshipTabs = ({ entityType, entityId, name, definition }: RelationshipTabsProps) => {
 
+  const [relatedTerms, setRelatedTerms] = useState([]);
   const [relatedSearchTerm, setRelatedSearchTerm] = useState("");
   const [unrelatedSearchTerm, setUnrelatedSearchTerm] = useState("");
   // const [showRecommendations, setShowRecommendations] = useState(false);
@@ -55,8 +64,8 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
 
     const request: SearchRequest = { query: name }
 
+    fetchRelatedTerms();
     setLoading(true); // 🔹 start loading
-    console.log(loading);
     const res = axios.post(`${API_BASE}/api/search`, request, {
       headers: { "Content-Type": "application/json" },
     }).then(res => setAIRecommended(res.data.results))
@@ -78,19 +87,18 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
     //   console.log(res);
     // }
   }, []);
-
-  const relatedTerms = mockAllTerms.filter(term => mockRelatedTerms.includes(term.id));
+  // setRelatedTerms(mockAllTerms.filter(term => mockRelatedTerms.includes(term.id)));
   // const unrelatedTerms = aiRecommended;
 
   const filteredRelatedTerms = relatedTerms?.filter((term) => {
     if (!relatedSearchTerm) return true; // show all if empty
     return term?.name?.toLowerCase().includes(relatedSearchTerm.toLowerCase()) ||
-      term?.description?.toLowerCase().includes(relatedSearchTerm.toLowerCase());
+      term?.definition?.toLowerCase().includes(relatedSearchTerm.toLowerCase());
   });
 
   // const filteredUnrelatedTerms = aiRecommended.filter(term =>
   //   term.name.toLowerCase().includes(unrelatedSearchTerm.toLowerCase()) ||
-  //   term.description.toLowerCase().includes(unrelatedSearchTerm.toLowerCase())
+  //   term.definition.toLowerCase().includes(unrelatedSearchTerm.toLowerCase())
   // );
 
   // const aiRecommendedTerms = showRecommendations 
@@ -106,20 +114,110 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
   const displayUnrelatedTerms = aiRecommended.filter(term => {
     if (!unrelatedSearchTerm) return true;
     return term?.name?.toLowerCase().includes(unrelatedSearchTerm.toLowerCase()) ||
-      term?.description?.toLowerCase().includes(unrelatedSearchTerm.toLowerCase())
+      term?.definition?.toLowerCase().includes(unrelatedSearchTerm.toLowerCase())
   }
   );
 
   const handleUnrelate = (termId: string) => {
-    console.log(`Unrelating term ${termId} from ${entityType} ${entityId}`);
+    deleteRelationship(termId);
     // In real app, this would make an API call
   };
 
-  const handleRelate = (termId: string) => {
-    console.log(`Relating term ${termId} to ${entityType} ${entityId}`);
-    // In real app, this would make an API call
+  const handleRelate = (aiterm: any) => {
+    insertAiRecommendation(aiterm);
   };
 
+  // ✅ Fetch Related Terms from Supabase
+  const fetchRelatedTerms = async () => {
+
+  try {
+    const { data, error } = await supabase
+      .from("term_relationships")
+      .select(`
+        id,
+        related_term:related_term_id (
+          id,
+          name,
+          definition
+        )
+      `)
+      .eq("source_term_id", entityId);
+
+    if (error) throw error;
+
+    // Map to flatten the related_term data for easier use in React
+    const mappedData = data.map((row: any) => ({
+      id: row.related_term.id,
+      name: row.related_term.name,
+      definition: row.related_term.definition,
+      relationship_id: row.id // keep the relationship id if needed
+    }));
+
+    setRelatedTerms(mappedData);
+
+  } catch (err) {
+    console.error("Error fetching related terms:", err);
+  }
+};
+  // ✅ Insert AI Recommendation into Supabase
+  const insertAiRecommendation = async (aiTerm: any) => {
+    if (!aiTerm) return;
+
+
+    try {
+// 1. Insert AI term into `terms` (upsert to avoid duplicates)
+    const { data: insertedTerm, error: insertError } = await supabase
+      .from("terms")
+      .upsert([{ id: aiTerm.id, name: aiTerm.name, definition: aiTerm.definition }])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Error inserting AI term:", insertError.message);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("term_relationships")
+      .insert([
+        {
+          source_term_id: entityId,
+          related_term_id: aiTerm.id
+        },
+      ]);
+
+   
+    if (error) throw error;
+      console.log("Inserted related term:", data);
+  } catch (err) {
+    console.error("Error inserting relationship:", err);
+  } finally {
+      fetchRelatedTerms(); // refresh related terms list
+  }
+
+  };
+
+  const deleteRelationship = async (relationshipId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("term_relationships")
+      .delete()
+      .eq("related_term_id", relationshipId);
+
+    if (error) {
+      console.error("Error deleting relationship:", error);
+      return false;
+    }
+
+    console.log("Deleted relationship:", data);
+    return true;
+
+  } catch (err) {
+    console.error("Unexpected error deleting relationship:", err);
+    return false;
+  } finally {
+    fetchRelatedTerms();
+  }
+};
   // const getRecommendationData = (termId: string) => {
   //   return mockAiRecommendations.find(rec => rec.id === termId);
   // };
@@ -159,7 +257,7 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
                   <div key={term.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/30">
                     <div className="flex-1">
                       <h4 className="font-medium">{term.name}</h4>
-                      <p className="text-sm text-muted-foreground">{term.description}</p>
+                      <p className="text-sm text-muted-foreground">{term.definition}</p>
                     </div>
                     <Button
                       size="sm"
@@ -279,7 +377,7 @@ const RelationshipTabs = ({ entityType, entityId, name }: RelationshipTabsProps)
                         </div>
                         <Button
                           size="sm"
-                          onClick={() => handleRelate(term.id)}
+                          onClick={() => handleRelate(term)}
                           className="bg-primary hover:bg-primary/90"
                         >
                           <Link className="h-4 w-4 mr-1" />

@@ -120,7 +120,8 @@ if (loading) {
                 <Database className="h-8 w-8 text-accent" />
                 <div>
                   <h1 className="text-xl font-bold">{term.name}</h1>
-                  <p className="text-sm text-muted-foreground">Term ID: {term.id}</p>
+                  {/* <p className="text-sm text-muted-foreground">Term ID: {term.id}</p> */}
+                  <p className="text-sm text-muted-foreground">{term.definition}</p>
                 </div>
               </div>
             </div>
@@ -218,6 +219,7 @@ if (loading) {
               entityType="Term"
               entityId={term.id}
               name={term.name}
+              definition={term.definition}
             />
           )}
         </div>
